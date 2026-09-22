@@ -1,7 +1,14 @@
 import { Fragment, useState } from "react";
-import type { Paper, PaperFigure, PaperTable } from "../../lib/types";
+import type {
+  AnalysisEvidence,
+  Paper,
+  PaperAnalysis,
+  PaperFigure,
+  PaperTable,
+} from "../../lib/types";
 import { mediaImageUrl } from "../../lib/api";
 import { cx } from "../../lib/utils";
+import { AnalysisSection, type AnalysisUiState } from "./AnalysisSection";
 import { PaperHeader } from "./PaperHeader";
 import { ReferencesViewer } from "./ReferencesViewer";
 import { ScannedNotice } from "./ScannedNotice";
@@ -13,12 +20,22 @@ export function DocumentView({
   highlightAnchor,
   refHighlight,
   onCitationClick,
+  analysis,
+  analysisUiState,
+  analysisError,
+  onAnalyze,
+  onEvidenceClick,
 }: {
   paper: Paper;
   highlightTerm: string | null;
   highlightAnchor: string | null;
   refHighlight: number | null;
   onCitationClick: (referenceIndex: number) => void;
+  analysis: PaperAnalysis | null;
+  analysisUiState: AnalysisUiState;
+  analysisError: string | null;
+  onAnalyze: (force: boolean) => void;
+  onEvidenceClick: (evidence: AnalysisEvidence) => void;
 }) {
   const citationsBySection = new Map<string, typeof paper.citations>();
   for (const cit of paper.citations) {
@@ -164,6 +181,15 @@ export function DocumentView({
           <DocDetail label="Source" value={paper.filename} truncate />
         </dl>
       </div>
+
+      <AnalysisSection
+        paper={paper}
+        analysis={analysis}
+        uiState={analysisUiState}
+        error={analysisError}
+        onAnalyze={onAnalyze}
+        onEvidenceClick={onEvidenceClick}
+      />
 
       {bodySections.length > 0 ? (
         <div className="mt-10 flex flex-col gap-10 border-t border-line pt-8">

@@ -6,10 +6,10 @@
 
 Turn dense research papers into structured, navigable reading experiences — at your level.
 
-![Stage](https://img.shields.io/badge/stage-4%20workspace-8F2D3C)
+![Stage](https://img.shields.io/badge/stage-5%20AI%20analysis-8F2D3C)
 ![Frontend](https://img.shields.io/badge/frontend-React%20%2B%20TypeScript-171717)
 ![Backend](https://img.shields.io/badge/backend-FastAPI%20%2B%20PyMuPDF-171717)
-![AI](https://img.shields.io/badge/AI-not%20yet-F3F3F0)
+![AI](https://img.shields.io/badge/AI-OpenAI%20structured%20analysis-8F2D3C)
 
 </div>
 
@@ -19,7 +19,7 @@ Turn dense research papers into structured, navigable reading experiences — at
 
 PaperLens helps **students understand research papers**. Upload a PDF and get a clean research workspace: a navigable outline, readable sections with page references, figures and tables, linked citations and references, local search, and raw-extraction transparency.
 
-> **No AI yet — by design.** Stages 1–4 build a rock-solid document foundation (upload → extraction → document intelligence → reading experience). LLM features (explanations, Q&A, research-gap analysis) plug into this foundation in later stages.
+> **Stage 5 adds the first real AI layer:** structured paper analysis (problem, methods, results, findings — each with page/section evidence) generated from the extracted document. Still no RAG, Q&A, or chat — those come later.
 
 ---
 
@@ -29,6 +29,7 @@ PaperLens helps **students understand research papers**. Upload a PDF and get a 
 |---|---|
 | 📄 **Upload flow** | Drag & drop PDF (≤ 20 MB) with honest processing milestones |
 | 🔍 **PDF extraction** | Page-preserving text, layout-aware reading order (incl. two-column) |
+| 🧠 **AI analysis** | Structured problem/methods/results/findings with page evidence (OpenAI, cached) |
 | 🧭 **Paper outline** | Real detected sections, numbered + nested, scroll-synced |
 | 📖 **Reading view** | Editorial typography, subsections, page ranges, “View source” |
 | 🔗 **Citations** | Click `[12]` → jumps to and highlights Reference 12 |
@@ -47,11 +48,13 @@ PDF
 FastAPI backend  ──  PyMuPDF extraction
  ↓  layout analysis → structure detection → entities → citations
 Structured Paper JSON  (pages · sections · references · figures · quality)
- ↓  REST API
-React workspace  ──  outline · document · search · context panel
+ ↓  section-aware context (prioritized, budgeted) → OpenAI structured analysis
+Paper Analysis JSON  (summary · problem · methods · findings · evidence)
+ ↓  REST API (cached in analysis.json — no repeat calls)
+React workspace  ──  outline · document · analysis · search · context panel
 ```
 
-**Planned next:** AI layer (explanations, Q&A, RAG) consumes the structured paper model — no rewrites needed.
+**Planned next:** Q&A / RAG / difficulty-adaptive explanations consume the structured paper + analysis — no rewrites needed.
 
 ---
 
@@ -70,6 +73,20 @@ python -m venv .venv
 .\.venv\Scripts\activate        # Windows
 # source .venv/bin/activate     # macOS / Linux
 pip install -r requirements.txt
+```
+
+**AI setup (Stage 5):** copy `backend/.env.example` to `backend/.env` and add your key:
+
+```bash
+OPENAI_API_KEY=sk-...        # required for “Analyze paper”
+# OPENAI_MODEL=gpt-4o-mini   # optional override
+```
+
+> 🔒 **Security note:** the API key lives **only** in the backend environment. It is never
+> prefixed with `VITE_`, never bundled into frontend code, and never sent to the browser.
+> All AI calls follow Frontend → FastAPI → OpenAI.
+
+```bash
 python -m uvicorn app.main:app --port 8000
 ```
 
@@ -90,6 +107,14 @@ The frontend talks to the backend via `VITE_BACKEND_URL` (see `.env.example`, de
 1. Open http://localhost:5174
 2. **Upload a paper** → pick any research-paper PDF
 3. Read, navigate, search (`/`), click citations, inspect figures
+4. In the workspace, open **AI Analysis** → **Analyze paper**
+   - The backend sends section-aware content (title → abstract → sections,
+     prioritized and budgeted) to OpenAI and saves structured JSON to
+     `backend/data/papers/<id>/analysis.json`
+   - Reopening the paper reuses the saved analysis — no repeat API calls
+   - **Regenerate analysis** forces a fresh call (old result kept until the
+     new one succeeds)
+   - Without `OPENAI_API_KEY`, analysis reports “not configured” instead of failing silently
 
 ---
 
@@ -126,7 +151,9 @@ The frontend talks to the backend via `VITE_BACKEND_URL` (see `.env.example`, de
 |---|---|---|
 | `GET` | `/api/health` | Service status |
 | `POST` | `/api/papers/upload` | Upload PDF → `{ paper_id, filename, status }` |
-| `GET` | `/api/papers/{paper_id}` | Full structured paper model |
+| `GET` | `/api/papers/{paper_id}` | Full structured paper model (+ `analysis_status`) |
+| `POST` | `/api/papers/{paper_id}/analyze` | Generate AI analysis (`{"force": false}` reuses cache) |
+| `GET` | `/api/papers/{paper_id}/analysis` | Saved analysis, or 404 if none yet |
 | `GET` | `/api/papers/{paper_id}/media/{figure\|table}/{index}/image` | Rendered region PNG (404 if unavailable) |
 
 Upload errors are human-readable (`400` wrong type · `413` oversized · `422` corrupted/encrypted · `404` unknown paper). Internals never leak.
@@ -139,7 +166,8 @@ Upload errors are human-readable (`400` wrong type · `413` oversized · `422` c
 - [x] **Stage 2** — PDF processing + extraction API
 - [x] **Stage 3** — Document intelligence (hierarchy, citations, entities, quality)
 - [x] **Stage 4** — Research workspace + reading experience + branding
-- [ ] **Stage 5+** — AI explanations, paper Q&A, research-gap analysis (LLM/RAG)
+- [x] **Stage 5** — AI integration (structured analysis + evidence + caching)
+- [ ] **Stage 6+** — Paper Q&A, RAG, difficulty adaptation, research gaps, viva, comparison
 
 ---
 

@@ -3,7 +3,7 @@
  * All components must use these functions — no scattered fetch() calls.
  */
 
-import type { Paper, UploadResult } from "./types";
+import type { AnalysisRecord, Paper, UploadResult } from "./types";
 
 const API_BASE =
   import.meta.env.VITE_BACKEND_URL?.replace(/\/$/, "") ??
@@ -91,6 +91,54 @@ export async function getPaper(paperId: string): Promise<Paper> {
 
 export function apiBase(): string {
   return API_BASE;
+}
+
+/** Request AI analysis. Only call on explicit user action (or regenerate). */
+export async function analyzePaper(
+  paperId: string,
+  force = false,
+): Promise<AnalysisRecord> {
+  let res: Response;
+  try {
+    res = await fetch(
+      `${API_BASE}/api/papers/${encodeURIComponent(paperId)}/analyze`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ force }),
+      },
+    );
+  } catch {
+    throw new ApiError(
+      0,
+      "Cannot reach the PaperLens server. Is the backend running?",
+    );
+  }
+  if (!res.ok) {
+    throw new ApiError(res.status, await readErrorMessage(res));
+  }
+  return (await res.json()) as AnalysisRecord;
+}
+
+/** Fetch a previously generated analysis (no AI call). */
+export async function getPaperAnalysis(
+  paperId: string,
+): Promise<AnalysisRecord> {
+  let res: Response;
+  try {
+    res = await fetch(
+      `${API_BASE}/api/papers/${encodeURIComponent(paperId)}/analysis`,
+    );
+  } catch {
+    throw new ApiError(
+      0,
+      "Cannot reach the PaperLens server. Is the backend running?",
+    );
+  }
+  if (!res.ok) {
+    throw new ApiError(res.status, await readErrorMessage(res));
+  }
+  return (await res.json()) as AnalysisRecord;
 }
 
 /** Rendered PNG for a detected figure/table region (may 404). */

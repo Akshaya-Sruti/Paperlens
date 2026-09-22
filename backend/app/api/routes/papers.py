@@ -10,7 +10,12 @@ from uuid import UUID, uuid4
 import fitz
 from fastapi import APIRouter, File, HTTPException, UploadFile, status
 from fastapi.responses import Response
+from pydantic import BaseModel, ValidationError
 
+from app.ai.context import prepare_paper_context
+from app.ai.openai_provider import get_provider
+from app.ai.provider import AnalysisRequest, ProviderError as AIProviderError
+from app.ai.schemas import AnalysisRecord, PaperAnalysis
 from app.schemas.paper import PaperResponse, UploadResponse
 from app.services.pipeline import process_pdf
 from app.utils.config import settings
@@ -21,7 +26,13 @@ from app.utils.errors import (
     PasswordProtectedPdfError,
     PdfError,
 )
-from app.utils.storage import load_paper, original_pdf_path, save_paper
+from app.utils.storage import (
+    load_analysis,
+    load_paper,
+    original_pdf_path,
+    save_analysis,
+    save_paper,
+)
 
 router = APIRouter(prefix="/api/papers", tags=["papers"])
 
@@ -129,7 +140,130 @@ async def get_paper(paper_id: str):
         )
     stored = dict(stored)
     stored["page_count"] = len(stored.get("pages", []))
+    record = load_analysis(settings.data_dir, normalized)
+    if record and record.get("status") == "completed":
+        stored["analysis_status"] = "completed"
+        stored["analysis_updated_at"] = record.get("updated_at")
+    elif record and record.get("status") == "failed":
+        stored["analysis_status"] = "failed"
+        stored["analysis_updated_at"] = record.get("updated_at")
+    else:
+        stored["analysis_status"] = "not_started"
+        stored["analysis_updated_at"] = None
     return stored
+
+
+class AnalyzeBody(BaseModel):
+    force: bool = False
+
+
+def _paper_or_404(paper_id: str) -> tuple[str, dict]:
+    try:
+        normalized = str(UUID(paper_id))
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Paper not found. It may have been removed.",
+        ) from None
+    stored = load_paper(settings.data_dir, normalized)
+    if stored is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Paper not found. It may have been removed.",
+        )
+    return normalized, stored
+
+
+@router.get("/{paper_id}/analysis", response_model=AnalysisRecord)
+async def get_analysis(paper_id: str):
+    normalized, _ = _paper_or_404(paper_id)
+    record = load_analysis(settings.data_dir, normalized)
+    if record is None or record.get("status") != "completed":
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No analysis exists for this paper yet. Generate one first.",
+        )
+    return record
+
+
+@router.post("/{paper_id}/analyze", response_model=AnalysisRecord)
+async def analyze_paper_route(paper_id: str, body: AnalyzeBody):
+    normalized, stored = _paper_or_404(paper_id)
+
+    existing = load_analysis(settings.data_dir, normalized)
+    if (
+        existing
+        and existing.get("status") == "completed"
+        and not body.force
+    ):
+        # Cached — no AI call.
+        return existing
+
+    if not stored.get("has_selectable_text", True):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This paper has no extractable text to analyze. "
+            "OCR support will be added in a future version.",
+        )
+
+    context = prepare_paper_context(stored)
+    if context.approx_input_chars < 200:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="There is not enough extracted content in this paper to analyze.",
+        )
+
+    provider = get_provider()
+    try:
+        raw = provider.analyze_paper(
+            AnalysisRequest(
+                paper_text=context.text,
+                approx_input_chars=context.approx_input_chars,
+                truncated=context.truncated,
+                sections_included=context.sections_included,
+            )
+        )
+    except AIProviderError as exc:
+        _remember_failure(normalized, existing, str(exc))
+        raise HTTPException(
+            status_code=exc.status_code, detail=exc.message
+        ) from exc
+
+    try:
+        analysis = PaperAnalysis.model_validate(raw)
+    except ValidationError as exc:
+        _remember_failure(
+            normalized,
+            existing,
+            "The AI returned an unexpected format. Try again.",
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="The AI returned an unexpected format. Try again.",
+        ) from exc
+
+    analysis.meta.provider = provider.name
+    analysis.meta.model = provider.model
+    analysis.meta.truncated = context.truncated
+    analysis.meta.sections_included = context.sections_included
+    analysis.meta.approx_input_chars = context.approx_input_chars
+
+    record = AnalysisRecord(status="completed", analysis=analysis)
+    save_analysis(settings.data_dir, normalized, record.model_dump())
+    return record.model_dump()
+
+
+def _remember_failure(
+    paper_id: str, existing: dict | None, message: str
+) -> None:
+    """Persist a failure marker — never overwriting a good analysis."""
+    if existing and existing.get("status") == "completed":
+        return
+    record = AnalysisRecord(status="failed", analysis=None, error=message)
+    try:
+        save_analysis(settings.data_dir, paper_id, record.model_dump())
+    except OSError:
+        pass
 
 
 @router.get("/{paper_id}/media/{kind}/{index}/image")

@@ -150,6 +150,8 @@ class PaperResponse(BaseModel):
     metadata: PaperMetadata = Field(default_factory=PaperMetadata)
     has_selectable_text: bool = True
     status: Literal["processed", "scanned"] = "processed"
+    analysis_status: Literal["not_started", "completed", "failed"] = "not_started"
+    analysis_updated_at: str | None = None
 
 
 class UploadResponse(BaseModel):

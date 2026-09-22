@@ -114,6 +114,64 @@ export interface PaperMetadata {
 
 export type PaperStatus = "processed" | "scanned";
 
+export type AnalysisStatus = "not_started" | "analyzing" | "completed" | "failed";
+
+export interface AnalysisEvidence {
+  claim: string;
+  source_type: string;
+  page: number | null;
+  section: string | null;
+  text: string;
+}
+
+export interface AnalysisRichBlock {
+  text: string | null;
+  interpretation: string | null;
+  evidence: AnalysisEvidence[];
+}
+
+export interface AnalysisListBlock {
+  items: string[];
+  evidence: AnalysisEvidence[];
+}
+
+export interface AnalysisKeyFinding {
+  statement: string;
+  interpretation: string | null;
+  evidence: AnalysisEvidence[];
+}
+
+export interface AnalysisMeta {
+  provider: string;
+  model: string;
+  truncated: boolean;
+  sections_included: string[];
+  approx_input_chars: number;
+  created_at: string;
+}
+
+export interface PaperAnalysis {
+  summary: AnalysisRichBlock;
+  research_problem: AnalysisRichBlock;
+  objectives: AnalysisListBlock;
+  methodology: AnalysisRichBlock;
+  dataset: AnalysisRichBlock;
+  models: AnalysisListBlock;
+  results: AnalysisRichBlock;
+  limitations: AnalysisListBlock;
+  future_work: AnalysisListBlock;
+  contributions: AnalysisListBlock;
+  key_findings: AnalysisKeyFinding[];
+  meta: AnalysisMeta;
+}
+
+export interface AnalysisRecord {
+  status: "completed" | "failed";
+  updated_at: string;
+  analysis: PaperAnalysis | null;
+  error: string | null;
+}
+
 export interface Paper {
   id: string;
   filename: string;
@@ -140,6 +198,8 @@ export interface Paper {
   metadata: PaperMetadata;
   has_selectable_text: boolean;
   status: PaperStatus;
+  analysis_status: "not_started" | "completed" | "failed";
+  analysis_updated_at: string | null;
 }
 
 export interface UploadResult {

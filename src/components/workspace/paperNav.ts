@@ -1,6 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import {
   BookMarked,
+  FileSearch,
   FileText,
   FlaskConical,
   Images,
@@ -142,6 +143,14 @@ export function buildPaperNav(
           label: "Overview",
           icon: ScrollText,
           target: "overview",
+          kind: "view",
+          level: 1,
+        },
+        {
+          id: "analysis",
+          label: "AI Analysis",
+          icon: FileSearch,
+          target: "analysis",
           kind: "view",
           level: 1,
         },

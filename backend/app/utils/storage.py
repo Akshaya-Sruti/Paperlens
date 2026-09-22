@@ -57,3 +57,27 @@ def original_pdf_path(data_dir: str, paper_id: str) -> str | None:
         return None
     path = os.path.join(directory, "original.pdf")
     return path if os.path.isfile(path) else None
+
+
+def save_analysis(data_dir: str, paper_id: str, record: dict[str, Any]) -> None:
+    directory = paper_dir(data_dir, paper_id)
+    tmp = os.path.join(directory, "analysis.json.tmp")
+    with open(tmp, "w", encoding="utf-8") as fh:
+        json.dump(record, fh, ensure_ascii=False)
+    os.replace(tmp, os.path.join(directory, "analysis.json"))
+
+
+def load_analysis(data_dir: str, paper_id: str) -> dict[str, Any] | None:
+    try:
+        directory = paper_dir(data_dir, paper_id)
+    except ValueError:
+        return None
+    path = os.path.join(directory, "analysis.json")
+    if not os.path.isfile(path):
+        return None
+    try:
+        with open(path, encoding="utf-8") as fh:
+            data = json.load(fh)
+    except (OSError, ValueError):
+        return None
+    return data if isinstance(data, dict) else None

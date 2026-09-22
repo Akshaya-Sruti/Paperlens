@@ -11,10 +11,15 @@ import { SearchPanel } from "../components/workspace/SearchPanel";
 import { WorkspaceSidebar } from "../components/workspace/WorkspaceSidebar";
 import { WorkspaceTopBar } from "../components/workspace/WorkspaceTopBar";
 import { buildPaperNav } from "../components/workspace/paperNav";
-import { ApiError, getPaper } from "../lib/api";
-import type { Paper } from "../lib/types";
+import { ApiError, analyzePaper, getPaper, getPaperAnalysis } from "../lib/api";
+import type {
+  AnalysisEvidence,
+  Paper,
+  PaperAnalysis,
+} from "../lib/types";
 import { useDocumentTitle } from "../lib/useDocumentTitle";
 import { pageRangeLabel } from "../components/workspace/SectionBlock";
+import type { AnalysisUiState } from "../components/workspace/AnalysisSection";
 
 export function PaperWorkspace() {
   const { paperId = "" } = useParams();
@@ -31,6 +36,9 @@ export function PaperWorkspace() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [contextOpen, setContextOpen] = useState(true);
   const [rawOpen, setRawOpen] = useState(false);
+  const [analysis, setAnalysis] = useState<PaperAnalysis | null>(null);
+  const [analysisUi, setAnalysisUi] = useState<AnalysisUiState>("idle");
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const drawerCloseRef = useRef<HTMLButtonElement>(null);
 
@@ -48,11 +56,31 @@ export function PaperWorkspace() {
     setHighlight(null);
     setSearchOpen(false);
     setRawOpen(false);
+    setAnalysis(null);
+    setAnalysisUi("idle");
+    setAnalysisError(null);
     getPaper(paperId)
       .then((p) => {
-        if (!cancelled) {
-          setPaper(p);
-          setLoading(false);
+        if (cancelled) return;
+        setPaper(p);
+        setLoading(false);
+        // Load cached analysis without triggering an AI call.
+        if (p.analysis_status === "completed") {
+          getPaperAnalysis(paperId)
+            .then((record) => {
+              if (!cancelled && record.analysis) {
+                setAnalysis(record.analysis);
+                setAnalysisUi("ready");
+              }
+            })
+            .catch(() => {
+              // Analysis marker exists but content unreadable — stay idle.
+            });
+        } else if (p.analysis_status === "failed") {
+          setAnalysisUi("error");
+          setAnalysisError(
+            "A previous analysis attempt failed. You can try again.",
+          );
         }
       })
       .catch((err: unknown) => {
@@ -129,13 +157,15 @@ export function PaperWorkspace() {
       const anchor =
         id === "overview"
           ? "top"
-          : id === "figures"
-            ? "figures"
-            : id === "references"
-              ? "references"
-              : id.startsWith("section:")
-                ? `sec-${id.replace(/^section:/, "")}`
-                : "top";
+          : id === "analysis"
+            ? "analysis"
+            : id === "figures"
+              ? "figures"
+              : id === "references"
+                ? "references"
+                : id.startsWith("section:")
+                  ? `sec-${id.replace(/^section:/, "")}`
+                  : "top";
       // Abstract lives in the overview block.
       const sectionId = id.replace(/^section:/, "");
       const section = paper?.sections.find((s) => s.id === sectionId);
@@ -153,6 +183,75 @@ export function PaperWorkspace() {
       scrollToAnchor("references");
     },
     [scrollToAnchor],
+  );
+
+  const handleAnalyze = useCallback(
+    async (force: boolean) => {
+      if (!paper || analysisUi === "loading") return;
+      setAnalysisUi("loading");
+      setAnalysisError(null);
+      try {
+        const record = await analyzePaper(paper.id, force);
+        if (record.analysis) {
+          setAnalysis(record.analysis);
+          setAnalysisUi("ready");
+          setPaper((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  analysis_status: "completed",
+                  analysis_updated_at: record.updated_at,
+                }
+              : prev,
+          );
+        } else {
+          throw new Error("empty");
+        }
+      } catch (err) {
+        setAnalysisUi("error");
+        setAnalysisError(
+          err instanceof ApiError
+            ? err.message
+            : "Analysis could not be generated. Try again.",
+        );
+      }
+    },
+    [paper, analysisUi],
+  );
+
+  const openEvidence = useCallback(
+    (evidence: AnalysisEvidence) => {
+      if (!paper) return;
+      const norm = (evidence.section ?? "")
+        .toLowerCase()
+        .replace(/^[\d.\sivxlc]+/, "")
+        .trim();
+      const byName = norm
+        ? paper.sections.find(
+            (s) =>
+              s.title.toLowerCase() === norm ||
+              s.normalized_type === norm.replace(/\s+/g, "_") ||
+              (evidence.section ?? "").toLowerCase() ===
+                (s.number ?? "").toLowerCase(),
+          )
+        : undefined;
+      const byPage =
+        !byName && evidence.page != null
+          ? paper.sections.find(
+              (s) =>
+                s.start_page <= (evidence.page as number) &&
+                (evidence.page as number) <= s.end_page,
+            )
+          : undefined;
+      const target = byName ?? byPage;
+      if (target) {
+        setActive(`section:${target.id}`);
+        scrollToAnchor(`sec-${target.id}`);
+      } else {
+        scrollToAnchor("top");
+      }
+    },
+    [paper, scrollToAnchor],
   );
 
   const searchNavigate = useCallback(
@@ -274,6 +373,11 @@ export function PaperWorkspace() {
               highlightAnchor={highlight?.anchor ?? null}
               refHighlight={refHighlight}
               onCitationClick={openReference}
+              analysis={analysis}
+              analysisUiState={analysisUi}
+              analysisError={analysisError}
+              onAnalyze={handleAnalyze}
+              onEvidenceClick={openEvidence}
             />
           )}
         </main>
