@@ -24,7 +24,7 @@ from app.utils.config import settings
 
 logger = logging.getLogger("paperlens.ai")
 
-DEFAULT_MODEL = "gemini-2.5-flash"
+DEFAULT_MODEL = "gemini-3.6-flash"
 MAX_OUTPUT_TOKENS = 8192
 _FENCE = re.compile(r"^\s*```(?:json)?\s*|\s*```\s*$")
 

@@ -63,7 +63,7 @@ class Settings:
     )
     gemini_api_key: str = os.getenv("GEMINI_API_KEY", "").strip()
     gemini_model: str = (
-        os.getenv("GEMINI_MODEL", "").strip() or "gemini-2.5-flash"
+        os.getenv("GEMINI_MODEL", "").strip() or "gemini-3.6-flash"
     )
 
 
