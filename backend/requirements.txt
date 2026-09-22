@@ -3,4 +3,6 @@ uvicorn==0.38.0
 python-multipart==0.0.20
 python-dotenv==1.1.1
 pymupdf==1.26.6
+google-genai==1.29.0
+# Optional: kept so OpenAI can be restored via AI_PROVIDER=openai.
 openai==1.99.5

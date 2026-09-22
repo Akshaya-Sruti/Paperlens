@@ -175,8 +175,3 @@ def _log_provider_error(exc: Exception, model: str) -> None:
         model,
         detail,
     )
-
-
-def get_provider() -> AIProvider:
-    """Factory — extend here when adding Gemini / local providers."""
-    return OpenAIProvider()

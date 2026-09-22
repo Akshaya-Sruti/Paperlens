@@ -56,9 +56,14 @@ class Settings:
         default_factory=lambda: _parse_origins(os.getenv("CORS_ORIGINS"))
     )
     # Stage 5 AI settings. Backend-only — never send these to the frontend.
+    ai_provider: str = os.getenv("AI_PROVIDER", "").strip() or "gemini"
     openai_api_key: str = os.getenv("OPENAI_API_KEY", "").strip()
     openai_model: str = (
         os.getenv("OPENAI_MODEL", "").strip() or "gpt-4o-mini"
+    )
+    gemini_api_key: str = os.getenv("GEMINI_API_KEY", "").strip()
+    gemini_model: str = (
+        os.getenv("GEMINI_MODEL", "").strip() or "gemini-2.5-flash"
     )
 
 

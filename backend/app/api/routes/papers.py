@@ -13,7 +13,7 @@ from fastapi.responses import Response
 from pydantic import BaseModel, ValidationError
 
 from app.ai.context import prepare_paper_context
-from app.ai.openai_provider import get_provider
+from app.ai import get_provider
 from app.ai.provider import AnalysisRequest, ProviderError as AIProviderError
 from app.ai.schemas import AnalysisRecord, PaperAnalysis
 from app.schemas.paper import PaperResponse, UploadResponse

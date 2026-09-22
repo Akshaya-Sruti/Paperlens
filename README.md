@@ -78,13 +78,16 @@ pip install -r requirements.txt
 **AI setup (Stage 5):** copy `backend/.env.example` to `backend/.env` and add your key:
 
 ```bash
-OPENAI_API_KEY=sk-...        # required for “Analyze paper”
-# OPENAI_MODEL=gpt-4o-mini   # optional override
+AI_PROVIDER=gemini             # default provider (or "openai" to swap back)
+GEMINI_API_KEY=YOUR_KEY_HERE   # required for “Analyze paper”
+# GEMINI_MODEL=gemini-2.5-flash  # optional override (free-tier default)
 ```
 
-> 🔒 **Security note:** the API key lives **only** in the backend environment. It is never
-> prefixed with `VITE_`, never bundled into frontend code, and never sent to the browser.
-> All AI calls follow Frontend → FastAPI → OpenAI.
+> 🔒 **Security note:** API keys live **only** in the backend environment (never
+> `VITE_`-prefixed, never bundled into frontend code, never sent to the browser).
+> All AI calls follow Frontend → FastAPI → provider. The provider is swappable:
+> `AI_PROVIDER=openai` (+ `OPENAI_API_KEY`) restores the OpenAI implementation
+> with no other changes.
 
 ```bash
 python -m uvicorn app.main:app --port 8000
@@ -109,12 +112,12 @@ The frontend talks to the backend via `VITE_BACKEND_URL` (see `.env.example`, de
 3. Read, navigate, search (`/`), click citations, inspect figures
 4. In the workspace, open **AI Analysis** → **Analyze paper**
    - The backend sends section-aware content (title → abstract → sections,
-     prioritized and budgeted) to OpenAI and saves structured JSON to
-     `backend/data/papers/<id>/analysis.json`
+     prioritized and budgeted) to the configured provider (Gemini by default)
+     and saves structured JSON to `backend/data/papers/<id>/analysis.json`
    - Reopening the paper reuses the saved analysis — no repeat API calls
    - **Regenerate analysis** forces a fresh call (old result kept until the
      new one succeeds)
-   - Without `OPENAI_API_KEY`, analysis reports “not configured” instead of failing silently
+   - Without `GEMINI_API_KEY`, analysis reports “not configured” instead of failing silently
 
 ---
 
