@@ -9,7 +9,6 @@ details and the API key never leave the backend.
 from __future__ import annotations
 
 import json
-import os
 
 from app.ai.prompts import (
     JSON_SCHEMA_HINT,
@@ -17,6 +16,7 @@ from app.ai.prompts import (
     analysis_user_prompt,
 )
 from app.ai.provider import AIProvider, AnalysisRequest, ProviderError
+from app.utils.config import settings
 
 DEFAULT_MODEL = "gpt-4o-mini"
 REQUEST_TIMEOUT_SECONDS = 120
@@ -32,7 +32,7 @@ def _get_client():
             kind="config",
             status_code=503,
         ) from exc
-    api_key = os.getenv("OPENAI_API_KEY", "").strip()
+    api_key = settings.openai_api_key
     if not api_key:
         raise ProviderError(
             "AI analysis is not configured: set OPENAI_API_KEY on the server and try again.",
@@ -46,9 +46,7 @@ class OpenAIProvider(AIProvider):
     name = "openai"
 
     def __init__(self, model: str | None = None):
-        self.model = (
-            model or os.getenv("OPENAI_MODEL", "").strip() or DEFAULT_MODEL
-        )
+        self.model = model or settings.openai_model or DEFAULT_MODEL
 
     def analyze_paper(self, request: AnalysisRequest) -> dict:
         client = _get_client()

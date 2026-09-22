@@ -1,6 +1,8 @@
 """Application configuration from environment variables.
 
-Stage 2 only: server, CORS and storage settings. No AI keys.
+Loads backend/.env (if present) so local development needs no shell
+exports; real environment variables always take precedence. No AI keys
+are ever exposed outside this module's Settings object.
 """
 
 from __future__ import annotations
@@ -11,6 +13,17 @@ from dataclasses import dataclass, field
 _BACKEND_DIR = os.path.dirname(os.path.dirname(os.path.dirname(
     os.path.abspath(__file__)
 )))
+
+
+def _load_local_env() -> None:
+    try:
+        from dotenv import load_dotenv
+    except ImportError:
+        return
+    load_dotenv(os.path.join(_BACKEND_DIR, ".env"))
+
+
+_load_local_env()
 
 
 def _parse_origins(raw: str | None) -> list[str]:
@@ -41,6 +54,11 @@ class Settings:
     )
     cors_origins: list[str] = field(
         default_factory=lambda: _parse_origins(os.getenv("CORS_ORIGINS"))
+    )
+    # Stage 5 AI settings. Backend-only — never send these to the frontend.
+    openai_api_key: str = os.getenv("OPENAI_API_KEY", "").strip()
+    openai_model: str = (
+        os.getenv("OPENAI_MODEL", "").strip() or "gpt-4o-mini"
     )
 
 
