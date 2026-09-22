@@ -9,6 +9,7 @@ details and the API key never leave the backend.
 from __future__ import annotations
 
 import json
+import logging
 
 from app.ai.prompts import (
     JSON_SCHEMA_HINT,
@@ -17,6 +18,8 @@ from app.ai.prompts import (
 )
 from app.ai.provider import AIProvider, AnalysisRequest, ProviderError
 from app.utils.config import settings
+
+logger = logging.getLogger("paperlens.ai")
 
 DEFAULT_MODEL = "gpt-4o-mini"
 REQUEST_TIMEOUT_SECONDS = 120
@@ -87,6 +90,7 @@ class OpenAIProvider(AIProvider):
                     break
                 continue
             except Exception as exc:
+                _log_provider_error(exc, self.model)
                 raise self._classify(exc) from exc
         raise last_error or ProviderError(
             "The AI returned an invalid response. Try again.",
@@ -110,11 +114,23 @@ class OpenAIProvider(AIProvider):
         name = type(exc).__name__
         message = str(exc)
         lowered = f"{name} {message}".lower()
+        code = str(getattr(exc, "code", "") or "").lower()
         if "authentication" in lowered or "api key" in lowered or "401" in lowered:
             return ProviderError(
                 "AI analysis is unavailable: the server's API key was rejected. "
                 "Check OPENAI_API_KEY and try again.",
                 kind="config",
+                status_code=503,
+            )
+        quota_markers = ("insufficient_quota", "insufficient quota",
+                         "credit_balance_exhausted", "billing_hard_limit_reached",
+                         "no credits remaining", "exceeded your current quota")
+        if any(m in lowered or m in code for m in quota_markers):
+            return ProviderError(
+                "AI analysis is unavailable: the OpenAI account has no remaining "
+                "credit or quota. Check billing/quota in the OpenAI dashboard, "
+                "then try again.",
+                kind="unavailable",
                 status_code=503,
             )
         if "rate limit" in lowered or "429" in lowered:
@@ -140,6 +156,25 @@ class OpenAIProvider(AIProvider):
             kind="unavailable",
             status_code=500,
         )
+
+
+def _log_provider_error(exc: Exception, model: str) -> None:
+    """Safe server-side diagnostic: error category, HTTP status, provider
+    error code and request ID. Never logs keys, headers, or request bodies.
+    """
+    status_code = getattr(exc, "status_code", None)
+    code = getattr(exc, "code", None)
+    request_id = getattr(exc, "request_id", None)
+    detail = str(exc).replace("\n", " ")[:200]
+    logger.warning(
+        "AI provider error type=%s status=%s code=%s request_id=%s model=%s detail=%s",
+        type(exc).__name__,
+        status_code,
+        code,
+        request_id,
+        model,
+        detail,
+    )
 
 
 def get_provider() -> AIProvider:
