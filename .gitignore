@@ -1,0 +1,38 @@
+# ── Frontend (Vite + React + TypeScript) ─────────────────────────────
+node_modules/
+dist/
+dist-ssr/
+*.local
+.vite/
+
+# Environment files (examples are committed, real values are not)
+.env
+.env.*.local
+backend/.env
+
+# ── Backend (Python / FastAPI) ─────────────────────────────────────
+backend/.venv/
+backend/__pycache__/
+backend/**/__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Processed papers + server logs (local runtime data)
+backend/data/papers/
+backend/*.log
+*.log
+
+# ── OS / editors ───────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ── Misc ───────────────────────────────────────────────────────────
+coverage/
+htmlcov/

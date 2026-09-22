@@ -1,0 +1,70 @@
+/**
+ * PaperLens brand mark — the same document + lens concept as the favicon.
+ * Used beside the wordmark everywhere (navbar, top bar, footer).
+ */
+export function BrandMark({ size = 28 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 32 32"
+      role="img"
+      aria-label="PaperLens"
+    >
+      <rect
+        x="5"
+        y="3.5"
+        width="15"
+        height="21"
+        rx="1.5"
+        fill="#FFFFFF"
+        stroke="#171717"
+        strokeWidth="2.4"
+      />
+      <line
+        x1="9"
+        y1="9.5"
+        x2="16"
+        y2="9.5"
+        stroke="#171717"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+      <line
+        x1="9"
+        y1="13.5"
+        x2="16"
+        y2="13.5"
+        stroke="#171717"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+      <line
+        x1="9"
+        y1="17.5"
+        x2="13.5"
+        y2="17.5"
+        stroke="#171717"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+      <circle
+        cx="20.5"
+        cy="20.5"
+        r="6.8"
+        fill="#FAFAF8"
+        stroke="#8F2D3C"
+        strokeWidth="2.4"
+      />
+      <line
+        x1="25.4"
+        y1="25.4"
+        x2="29"
+        y2="29"
+        stroke="#8F2D3C"
+        strokeWidth="2.4"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
