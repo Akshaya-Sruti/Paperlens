@@ -80,7 +80,7 @@ pip install -r requirements.txt
 ```bash
 AI_PROVIDER=gemini             # default provider (or "openai" to swap back)
 GEMINI_API_KEY=YOUR_KEY_HERE   # required for “Analyze paper”
-# GEMINI_MODEL=gemini-2.5-flash  # optional override (free-tier default)
+# GEMINI_MODEL=gemini-3.6-flash  # optional override (free-tier default)
 ```
 
 > 🔒 **Security note:** API keys live **only** in the backend environment (never
